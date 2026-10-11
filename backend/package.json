@@ -1,0 +1,51 @@
+{
+  "name": "icey-shopping-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "icey-shopping API server with pluggable payment providers (Stripe first).",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "node --test --import tsx 'src/**/*.test.ts'"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "cors": "2.8.5",
+    "dotenv": "16.4.5",
+    "express": "4.21.1",
+    "nanoid": "5.0.9",
+    "pino": "9.5.0",
+    "pino-http": "10.3.0",
+    "stripe": "17.3.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.17",
+    "@types/express": "5.0.0",
+    "@types/node": "22.9.0",
+    "pino-pretty": "^11.3.0",
+    "prisma": "5.22.0",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "esbuild@0.23.1": true,
+    "prisma@5.22.0": true
+  }
+}
