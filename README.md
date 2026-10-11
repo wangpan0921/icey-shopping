@@ -67,6 +67,27 @@ stripe listen --forward-to localhost:4000/api/webhooks/stripe
 # 把输出的 whsec_xxx 填回 backend/.env 的 STRIPE_WEBHOOK_SECRET
 ```
 
+### 局域网访问（手机 / 其他电脑访问同一个开发实例）
+
+一台机器跑完整栈，其他设备（手机 / Windows / Mac）只做浏览器访问时：
+
+1. 查后端机的局域网 IP（Linux: `ip -4 addr | grep inet`，macOS: `ipconfig getifaddr en0`，Windows: `ipconfig`）。假设是 `192.168.1.100`。
+2. 编辑 `backend/.env`：
+   ```ini
+   PUBLIC_WEB_URL=http://192.168.1.100:3000
+   PUBLIC_API_URL=http://192.168.1.100:4000
+   CORS_ORIGINS=http://192.168.1.100:3000,http://localhost:3000
+   ```
+3. 编辑 `frontend/.env.local`：
+   ```ini
+   NEXT_PUBLIC_API_URL=http://192.168.1.100:4000
+   ```
+4. 启动前端用 `npm run dev:lan`（而不是 `npm run dev`）—— 这会让 Next 监听 `0.0.0.0` 而非仅 `localhost`。后端 Express 默认已经监听 `0.0.0.0`。
+5. 放行防火墙 3000/4000 端口。Linux ufw: `sudo ufw allow 3000/tcp && sudo ufw allow 4000/tcp`。
+6. 从其他设备访问 `http://192.168.1.100:3000`。
+
+改完 `.env` 必须重启进程（Node 不热加载环境变量）。
+
 ## 测试环境 vs 生产环境
 
 通过环境变量切换，不需要代码分支：
