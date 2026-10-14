@@ -45,7 +45,7 @@ function makeHandler(providerName: ProviderName) {
             { provider: providerName, eventId: event.eventId },
             '[webhook] duplicate event ignored',
           );
-          return res.status(200).json({ received: true, dedup: true });
+          return respondOk(providerName, res);
         }
         throw err;
       }
@@ -58,7 +58,7 @@ function makeHandler(providerName: ProviderName) {
       if (!payment) {
         // 不认得这个 providerRef，可能是其他商户/其他环境打过来的，忽略但 2xx
         logger.warn({ event }, '[webhook] payment not found by providerRef, ignored');
-        return res.status(200).json({ received: true, ignored: true });
+        return respondOk(providerName, res);
       }
 
       // 金额 / 币种一致性校验（SUCCEEDED 事件才需要）
@@ -71,14 +71,14 @@ function makeHandler(providerName: ProviderName) {
             { paymentId: payment.id, got: event.amountCents, expected: payment.amountCents },
             '[webhook] amount mismatch, refusing to mark paid',
           );
-          return res.status(400).json({ error: 'amount mismatch' });
+          return respondError(providerName, res, 'amount mismatch');
         }
         if (event.currency && event.currency.toLowerCase() !== payment.currency.toLowerCase()) {
           logger.error(
             { paymentId: payment.id, got: event.currency, expected: payment.currency },
             '[webhook] currency mismatch',
           );
-          return res.status(400).json({ error: 'currency mismatch' });
+          return respondError(providerName, res, 'currency mismatch');
         }
       }
 
@@ -139,13 +139,40 @@ function makeHandler(providerName: ProviderName) {
         '[webhook] processed',
       );
 
-      return res.status(200).json({ received: true });
+      return respondOk(providerName, res);
     } catch (err) {
       logger.error({ err }, '[webhook] handler error');
       // Stripe 要求 4xx 以让其重试；其他渠道按规范各异
-      return res.status(400).json({ error: (err as Error).message });
+      return respondError(providerName, res, (err as Error).message);
     }
   };
+}
+
+// 不同渠道要求的 2xx 响应体格式不同：
+// - 支付宝：返回明文 "success"（否则 25 小时内重试 8 次）
+// - 微信 v3：返回 { code: "SUCCESS", message: "成功" }（任何 2xx 其实也行，但按规范更稳）
+// - Stripe：任意 2xx
+function respondOk(provider: ProviderName, res: import('express').Response) {
+  if (provider === 'alipay') {
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).send('success');
+  }
+  if (provider === 'wechat') {
+    return res.status(200).json({ code: 'SUCCESS', message: '成功' });
+  }
+  return res.status(200).json({ received: true });
+}
+
+function respondError(provider: ProviderName, res: import('express').Response, message: string) {
+  if (provider === 'wechat') {
+    return res.status(400).json({ code: 'FAIL', message });
+  }
+  // 支付宝不认错误体，但为让它重试仍返回非 "success"
+  if (provider === 'alipay') {
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(400).send(`fail: ${message}`);
+  }
+  return res.status(400).json({ error: message });
 }
 
 // 必须用 raw 以保留原始 bytes（供 HMAC 验签）
@@ -161,6 +188,14 @@ webhooksRouter.post(
   makeHandler('mock'),
 );
 
-// 未来扩展：
-// webhooksRouter.post('/wechat', raw({ type: '*/*' }), makeHandler('wechat'));
-// webhooksRouter.post('/alipay', raw({ type: '*/*' }), makeHandler('alipay'));
+webhooksRouter.post(
+  '/wechat',
+  raw({ type: '*/*' }),
+  makeHandler('wechat'),
+);
+
+webhooksRouter.post(
+  '/alipay',
+  raw({ type: '*/*' }),
+  makeHandler('alipay'),
+);

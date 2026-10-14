@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
+    "alipay-sdk": "^4.14.0",
     "cors": "2.8.5",
     "dotenv": "16.4.5",
     "express": "4.21.1",
@@ -28,6 +29,7 @@
     "pino": "9.5.0",
     "pino-http": "10.3.0",
     "stripe": "17.3.1",
+    "wechatpay-node-v3": "^2.2.1",
     "zod": "3.23.8"
   },
   "devDependencies": {

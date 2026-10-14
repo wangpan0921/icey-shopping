@@ -38,3 +38,6 @@ Thumbs.db
 # coverage
 coverage/
 .nyc_output/
+
+# TypeScript incremental build
+*.tsbuildinfo

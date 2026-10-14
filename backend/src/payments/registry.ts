@@ -5,6 +5,8 @@ import { logger } from '../common/logger.js';
 import type { PaymentProvider } from './PaymentProvider.js';
 import { StripeAdapter } from './providers/StripeAdapter.js';
 import { MockAdapter } from './providers/MockAdapter.js';
+import { WechatAdapter } from './providers/WechatAdapter.js';
+import { AlipayAdapter } from './providers/AlipayAdapter.js';
 import type { ProviderName } from './types.js';
 
 const instances = new Map<ProviderName, PaymentProvider>();
@@ -23,11 +25,11 @@ export function getProvider(name?: ProviderName): PaymentProvider {
       instance = new MockAdapter();
       break;
     case 'wechat':
+      instance = new WechatAdapter();
+      break;
     case 'alipay':
-      // 占位：日后扩展时在 providers/ 下加文件 + 这里 new
-      throw new Error(
-        `[payments] provider "${target}" is not implemented yet; add an adapter under providers/`,
-      );
+      instance = new AlipayAdapter();
+      break;
     default:
       throw new Error(`[payments] unknown provider: ${String(target)}`);
   }

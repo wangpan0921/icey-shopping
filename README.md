@@ -14,10 +14,10 @@
 │                                                          │
 │  ┌────────────┐   ┌────────────────────────────────────┐ │
 │  │ Orders     │──▶│  PaymentProvider (适配层)          │ │
-│  │ Products   │   │   ├─ StripeAdapter  (已实现)       │ │
-│  │ Webhooks   │   │   ├─ MockAdapter    (测试/CI)      │ │
-│  └────────────┘   │   ├─ WechatAdapter  (占位,待实现)  │ │
-│                   │   └─ AlipayAdapter  (占位,待实现)  │ │
+│  │ Products   │   │   ├─ StripeAdapter  (境外, 已实现) │ │
+│  │ Webhooks   │   │   ├─ WechatAdapter  (境内, 已实现) │ │
+│  └────────────┘   │   ├─ AlipayAdapter  (境内, 已实现) │ │
+│                   │   └─ MockAdapter    (测试/CI)      │ │
 │                   └────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────┘
                 │
@@ -33,13 +33,17 @@
 
 ## 快速开始
 
-两种模式自由切换：
+目前已实现三个支付渠道，用 `backend/.env` 的 `PAYMENT_PROVIDER` 切换：
 
-| 模式          | 用途               | 需要资质 | 需要密钥                            |
-|---------------|--------------------|---------|-------------------------------------|
-| mock          | 本地跑通、单测、CI | 否      | 无                                  |
-| stripe-test   | 真实对接联调       | 否      | Stripe 测试密钥（dashboard 直接申请）|
-| stripe-live   | 生产               | 是      | Stripe 正式密钥 + 商户资质          |
+| 模式          | 用途               | 需要资质 | 需要密钥                                       |
+|---------------|--------------------|---------|-----------------------------------------------|
+| mock          | 本地跑通、单测、CI | 否      | 无                                            |
+| stripe        | 境外买家（美元等） | 测试否生产是 | Stripe secret + webhook secret           |
+| wechat        | 境内微信支付       | 测试否生产是 | WECHAT_APPID/MCHID/API_V3_KEY/PRIVATE_KEY/SERIAL_NO |
+| alipay        | 境内支付宝         | 测试否生产是 | ALIPAY_APP_ID/PRIVATE_KEY/PUBLIC_KEY     |
+
+**关键机制：开发期零资质跑通**
+每个真实渠道的 Adapter 都内置 mock fallback，密钥不填就自动走假流程（返回假 redirect 跳 `/pay/mock`），拿到商户号把密钥填进 `.env` 重启即可切真实渠道，不改代码。
 
 ### 后端
 ```bash
