@@ -15,7 +15,7 @@ export class MockAdapter implements PaymentProvider {
   async createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult> {
     const providerRef = `mock_${input.orderId}_${Date.now()}`;
     // 前端提供一个模拟支付页，支持点按钮触发 confirm
-    const url = `${config.PUBLIC_WEB_URL}/pay/mock?orderNo=${encodeURIComponent(input.orderNo)}&providerRef=${encodeURIComponent(providerRef)}&amount=${input.amountCents}&currency=${input.currency}`;
+    const url = `${config.PUBLIC_WEB_URL}/pay/mock?orderNo=${encodeURIComponent(input.orderNo)}&providerRef=${encodeURIComponent(providerRef)}&amount=${input.amountCents}&currency=${input.currency}&channel=mock`;
     return { kind: 'redirect', url, providerRef };
   }
 

@@ -15,21 +15,32 @@ import type {
 
 export class StripeAdapter implements PaymentProvider {
   readonly name = 'stripe' as const;
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
+  private readonly configured: boolean;
 
   constructor() {
-    if (!config.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY is required to construct StripeAdapter');
+    this.configured = !!config.STRIPE_SECRET_KEY;
+    if (this.configured) {
+      this.stripe = new Stripe(config.STRIPE_SECRET_KEY, {
+        // 固定 apiVersion，升级 Stripe SDK 时才去动它，避免行为突变
+        apiVersion: '2024-10-28.acacia',
+        typescript: true,
+        appInfo: { name: 'icey-shopping', version: '0.1.0' },
+      });
+    } else {
+      this.stripe = null;
+      logger.warn('[stripe] STRIPE_SECRET_KEY not set, running in MOCK fallback mode');
     }
-    this.stripe = new Stripe(config.STRIPE_SECRET_KEY, {
-      // 固定 apiVersion，升级 Stripe SDK 时才去动它，避免行为突变
-      apiVersion: '2024-10-28.acacia',
-      typescript: true,
-      appInfo: { name: 'icey-shopping', version: '0.1.0' },
-    });
   }
 
   async createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult> {
+    // Mock fallback：没密钥时跳到 /pay/mock 走假流程
+    if (!this.stripe) {
+      const providerRef = `stripe_mock_${input.orderId}_${Date.now()}`;
+      const url = `${config.PUBLIC_WEB_URL}/pay/mock?orderNo=${encodeURIComponent(input.orderNo)}&providerRef=${encodeURIComponent(providerRef)}&amount=${input.amountCents}&currency=${input.currency}&channel=stripe`;
+      return { kind: 'redirect', url, providerRef };
+    }
+
     const successUrl = `${config.PUBLIC_WEB_URL}/pay/result?orderNo=${encodeURIComponent(
       input.orderNo,
     )}&session_id={CHECKOUT_SESSION_ID}`;
@@ -80,6 +91,25 @@ export class StripeAdapter implements PaymentProvider {
     rawBody: Buffer;
     headers: Record<string, string | string[] | undefined>;
   }): Promise<NormalizedEvent> {
+    // Mock fallback：没密钥时读 payload 的明文字段（与 wechat/alipay 一致）
+    if (!this.stripe) {
+      const body = JSON.parse(rawBody.toString('utf-8')) as {
+        providerRef?: string;
+        outcome?: 'success' | 'failure';
+        amountCents?: number;
+        currency?: string;
+      };
+      return {
+        eventId: `stripe_mock_${body.providerRef}_${body.outcome ?? 'success'}_${Date.now()}`,
+        eventType: `stripe.mock.${body.outcome ?? 'success'}`,
+        providerRef: body.providerRef ?? '',
+        status: body.outcome === 'failure' ? 'FAILED' : 'SUCCEEDED',
+        amountCents: body.amountCents,
+        currency: body.currency,
+        rawPayload: body,
+      };
+    }
+
     if (!config.STRIPE_WEBHOOK_SECRET) {
       throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
     }
@@ -100,6 +130,7 @@ export class StripeAdapter implements PaymentProvider {
   }
 
   async queryPayment(providerRef: string): Promise<NormalizedEvent | null> {
+    if (!this.stripe) return null;
     try {
       const session = await this.stripe.checkout.sessions.retrieve(providerRef);
       return this.normalizeFromSession(session);
@@ -110,6 +141,7 @@ export class StripeAdapter implements PaymentProvider {
   }
 
   async refund({ providerRef, amountCents }: { providerRef: string; amountCents?: number }) {
+    if (!this.stripe) throw new Error('stripe not configured, cannot refund in mock mode');
     // Checkout Session -> payment_intent -> refund
     const session = await this.stripe.checkout.sessions.retrieve(providerRef);
     const paymentIntent =

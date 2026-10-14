@@ -12,15 +12,20 @@ import { webhooksRouter } from './webhooks/router.js';
 export function createApp() {
   const app = express();
 
-  // 顺序注意：webhooks 必须在 json 之前挂载，否则 express.json 会先消费 body 导致 Stripe 验签失败
-  app.use('/api/webhooks', webhooksRouter);
-
+  // 中间件挂载顺序关键：
+  // 1. CORS 最前：所有路由（包括 webhooks）都需要返回 Access-Control-Allow-Origin，
+  //    否则浏览器从前端 fetch webhook（dev 期的 mock 调用场景）会被 CORS 拦截显示 "Failed to fetch"。
+  // 2. webhooks 用 express.raw 保留原始 bytes（Stripe HMAC 验签必需），且必须在 express.json 之前挂载。
+  // 3. express.json 其他路由用。
   app.use(
     cors({
       origin: config.CORS_ORIGINS,
       credentials: true,
     }),
   );
+
+  app.use('/api/webhooks', webhooksRouter);
+
   app.use(express.json({ limit: '1mb' }));
   app.use(pinoHttp({ logger }));
 

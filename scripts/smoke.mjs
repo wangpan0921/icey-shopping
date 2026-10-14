@@ -54,7 +54,8 @@ function fakeWebhookPayload(provider, { providerRef, amountCents, currency, outc
     };
   }
   if (provider === 'stripe') {
-    throw new Error('Stripe mock webhook not supported here; use stripe listen');
+    // 现在 StripeAdapter 也支持 mock fallback，webhook 读 { providerRef, outcome, ... } 明文
+    return { providerRef, outcome, amountCents, currency };
   }
   throw new Error(`Unknown provider: ${provider}`);
 }
